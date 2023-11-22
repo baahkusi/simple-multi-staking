@@ -14,7 +14,7 @@ describe("Staking", function () {
     // Contracts are deployed using the first signer/account by default
     const [owner, otherAccount] = await ethers.getSigners();
 
-    const DEFAULT_MINT = BigInt(1e18) * BigInt(100 * 1e9);
+    const DEFAULT_MINT = BigInt(1e15) * BigInt(1e9);
 
     const TRANSFER_AMNT = DEFAULT_MINT / BigInt(5);
 
@@ -72,7 +72,7 @@ describe("Staking", function () {
       DAYS_90,
     } = await loadFixture(deployStaking);
     const periods = [DAYS_30, DAYS_60, DAYS_90];
-    const rewards = [10000, 10000, 10000];
+    const rewards = [10000, 18e11, 10000, 8e9, 10000, 78e8];
     await staking.registerToken(
       await stakeToken1.getAddress(),
       periods,
@@ -114,7 +114,7 @@ describe("Staking", function () {
       unregisteredToken,
       owner,
     } = await loadFixture(registeredTokensFixture);
-    const STAKE_AMNT = BigInt(1e18) * BigInt(5 * 1e9);
+    const STAKE_AMNT = BigInt(1e13);
     const DOUBLE_STAKE = STAKE_AMNT + STAKE_AMNT;
     await stakeToken1
       .connect(otherAccount)
@@ -128,22 +128,38 @@ describe("Staking", function () {
     await staking
       .connect(otherAccount)
       .stake(await stakeToken2.getAddress(), STAKE_AMNT, DAYS_60);
-    const [stake1Amount, stake1RewardsRate, stake1RecentRewardsTime] =
-      await staking.userStakings(
-        await otherAccount.getAddress(),
-        await stakeToken1.getAddress(),
-        DAYS_30
-      );
-    const [stake2Amount, stake2RewardsRate, stake2RecentRewardsTime] =
-      await staking.userStakings(
-        await otherAccount.getAddress(),
-        await stakeToken2.getAddress(),
-        DAYS_60
-      );
-    const [token1RewardsRate, token1Registered, token1TotalStake] =
-      await staking.stakeTokens(await stakeToken1.getAddress(), DAYS_30);
-    const [token2RewardsRate, token2Registered, token2TotalStake] =
-      await staking.stakeTokens(await stakeToken2.getAddress(), DAYS_60);
+    const [
+      stake1Amount,
+      stake1RewardsLower,
+      stake1RewardsUpper,
+      stake1RecentRewardsTime,
+    ] = await staking.userStakings(
+      await otherAccount.getAddress(),
+      await stakeToken1.getAddress(),
+      DAYS_30
+    );
+    const [
+      stake2Amount,
+      stake2RewardsLower,
+      stake2RewardsUpper,
+      stake2RecentRewardsTime,
+    ] = await staking.userStakings(
+      await otherAccount.getAddress(),
+      await stakeToken2.getAddress(),
+      DAYS_60
+    );
+    const [
+      token1RewardsLower,
+      token1RewardsUpper,
+      token1Registered,
+      token1TotalStake,
+    ] = await staking.stakeTokens(await stakeToken1.getAddress(), DAYS_30);
+    const [
+      token2RewardsLower,
+      token2RewardsUpper,
+      token2Registered,
+      token2TotalStake,
+    ] = await staking.stakeTokens(await stakeToken2.getAddress(), DAYS_60);
     const token1UserReward = await staking.userRewards(
       await otherAccount.getAddress(),
       await stakeToken1.getAddress(),
@@ -158,8 +174,10 @@ describe("Staking", function () {
     expect(stake2Amount).to.equal(STAKE_AMNT);
     expect(stake1Amount).to.equal(token1TotalStake);
     expect(stake2Amount).to.equal(token2TotalStake);
-    expect(stake1RewardsRate).to.equal(token1RewardsRate);
-    expect(stake2RewardsRate).to.equal(token2RewardsRate);
+    expect(stake1RewardsLower).to.equal(token1RewardsLower);
+    expect(stake2RewardsLower).to.equal(token2RewardsLower);
+    expect(stake1RewardsUpper).to.equal(token1RewardsUpper);
+    expect(stake2RewardsUpper).to.equal(token2RewardsUpper);
     expect(token1UserReward).to.equal(0);
     expect(token2UserReward).to.equal(0);
     expect(await stakeToken1.balanceOf(await staking.getAddress())).to.equal(
@@ -191,22 +209,38 @@ describe("Staking", function () {
     await staking
       .connect(otherAccount)
       .stake(await stakeToken2.getAddress(), STAKE_AMNT, DAYS_60);
-    const [stake1Amount2, stake1RewardsRate2, stake1RecentRewardsTime2] =
-      await staking.userStakings(
-        await otherAccount.getAddress(),
-        await stakeToken1.getAddress(),
-        DAYS_30
-      );
-    const [stake2Amount2, stake2RewardsRate2, stake2RecentRewardsTime2] =
-      await staking.userStakings(
-        await otherAccount.getAddress(),
-        await stakeToken2.getAddress(),
-        DAYS_60
-      );
-    const [token1RewardsRate2, token1Registered2, token1TotalStake2] =
-      await staking.stakeTokens(await stakeToken1.getAddress(), DAYS_30);
-    const [token2RewardsRate2, token2Registered2, token2TotalStake2] =
-      await staking.stakeTokens(await stakeToken2.getAddress(), DAYS_60);
+    const [
+      stake1Amount2,
+      stake1RewardsLower2,
+      stake1RewardsUpper2,
+      stake1RecentRewardsTime2,
+    ] = await staking.userStakings(
+      await otherAccount.getAddress(),
+      await stakeToken1.getAddress(),
+      DAYS_30
+    );
+    const [
+      stake2Amount2,
+      stake2RewardsLower2,
+      stake2RewardsUpper2,
+      stake2RecentRewardsTime2,
+    ] = await staking.userStakings(
+      await otherAccount.getAddress(),
+      await stakeToken2.getAddress(),
+      DAYS_60
+    );
+    const [
+      token1RewardsLower2,
+      token1RewardsUpper2,
+      token1Registered2,
+      token1TotalStake2,
+    ] = await staking.stakeTokens(await stakeToken1.getAddress(), DAYS_30);
+    const [
+      token2RewardsLower2,
+      token2RewardsUpper2,
+      token2Registered2,
+      token2TotalStake2,
+    ] = await staking.stakeTokens(await stakeToken2.getAddress(), DAYS_60);
     const token1UserReward2 = await staking.userRewards(
       await otherAccount.getAddress(),
       await stakeToken1.getAddress(),
@@ -231,8 +265,10 @@ describe("Staking", function () {
     expect(stake2Amount2).to.equal(DOUBLE_STAKE);
     expect(stake1Amount2).to.equal(token1TotalStake2);
     expect(stake2Amount2).to.equal(token2TotalStake2);
-    expect(stake1RewardsRate2).to.equal(token1RewardsRate2);
-    expect(stake2RewardsRate2).to.equal(token2RewardsRate2);
+    expect(stake1RewardsLower2).to.equal(token1RewardsLower2);
+    expect(stake2RewardsLower2).to.equal(token2RewardsLower2);
+    expect(stake1RewardsUpper2).to.equal(token1RewardsUpper2);
+    expect(stake2RewardsUpper2).to.equal(token2RewardsUpper2);
     expect(token1UserReward2).to.equal(token1CalculateReward);
     expect(token2UserReward2).to.equal(token2CalculateReward);
     expect(token1CalculateReward2).to.equal(0);
@@ -256,29 +292,37 @@ describe("Staking", function () {
       DAYS_90,
       STAKE_AMNT,
       stake1Amount,
-      stake1RewardsRate,
+      stake1RewardsLower,
+      stake1RewardsUpper,
       stake1RecentRewardsTime,
       stake2Amount,
-      stake2RewardsRate,
+      stake2RewardsLower,
+      stake2RewardsUpper,
       stake2RecentRewardsTime,
-      token1RewardsRate,
+      token1RewardsLower,
+      token1RewardsUpper,
       token1Registered,
       token1TotalStake,
-      token2RewardsRate,
+      token2RewardsLower,
+      token2RewardsUpper,
       token2Registered,
       token2TotalStake,
       token1CalculateReward,
       token2CalculateReward,
       stake1Amount2,
-      stake1RewardsRate2,
+      stake1RewardsLower2,
+      stake1RewardsUpper2,
       stake1RecentRewardsTime2,
       stake2Amount2,
-      stake2RewardsRate2,
+      stake2RewardsLower2,
+      stake2RewardsUpper2,
       stake2RecentRewardsTime2,
-      token1RewardsRate2,
+      token1RewardsLower2,
+      token1RewardsUpper2,
       token1Registered2,
       token1TotalStake2,
-      token2RewardsRate2,
+      token2RewardsLower2,
+      token2RewardsUpper2,
       token2Registered2,
       token2TotalStake2,
       token1UserReward,
@@ -326,7 +370,7 @@ describe("Staking", function () {
       const stakingContractRewardBalanceBefore = await rewardToken.balanceOf(
         await staking.getAddress()
       );
-      expect(stakingContractRewardBalanceBefore).to.be.greaterThan(0);      
+      expect(stakingContractRewardBalanceBefore).to.be.greaterThan(0);
       await staking.transferRewardToken(otherAccount);
       const otherAccountRewardBalanceAfter = await rewardToken.balanceOf(
         await otherAccount.getAddress()
@@ -393,7 +437,7 @@ describe("Staking", function () {
       const { staking, stakeToken1, stakeToken2, DAYS_30, DAYS_60, DAYS_90 } =
         await loadFixture(deployStaking);
       const periods = [DAYS_30, DAYS_60, DAYS_90];
-      const rewards = [10000, 10000, 10000];
+      const rewards = [10000, 1, 10000, 1, 10000, 1];
       await staking.registerToken(
         await stakeToken1.getAddress(),
         periods,
@@ -413,7 +457,7 @@ describe("Staking", function () {
       const { staking, otherAccount, stakeToken1, DAYS_30, DAYS_60, DAYS_90 } =
         await loadFixture(deployStaking);
       const periods = [DAYS_30, DAYS_60, DAYS_90];
-      const rewards = [10000, 10000, 10000];
+      const rewards = [10000, 1, 10000, 1, 10000, 1];
       await expect(
         staking
           .connect(otherAccount)
@@ -424,7 +468,7 @@ describe("Staking", function () {
       const { staking, otherAccount, stakeToken1, DAYS_30, DAYS_60, DAYS_90 } =
         await loadFixture(deployStaking);
       const periods = [DAYS_30, DAYS_60, DAYS_90];
-      const rewards = [10000, 10000];
+      const rewards = [10000, 1, 10000, 1];
       await expect(
         staking.registerToken(stakeToken1.getAddress(), periods, rewards)
       ).to.be.revertedWith("PeriodsRewardsLengthMisMatch");
@@ -433,7 +477,7 @@ describe("Staking", function () {
       const { staking, otherAccount, rewardToken, DAYS_30, DAYS_60, DAYS_90 } =
         await loadFixture(deployStaking);
       const periods = [DAYS_30, DAYS_60, DAYS_90];
-      const rewards = [10000, 10000, 10000];
+      const rewards = [10000, 1, 10000, 1, 10000, 1];
       await expect(
         staking.registerToken(rewardToken.getAddress(), periods, rewards)
       ).to.be.revertedWith("NotRewardToken");
@@ -444,7 +488,7 @@ describe("Staking", function () {
       const periodsNo30 = [DAYS_60, DAYS_90];
       const periodsNo60 = [DAYS_30, DAYS_90];
       const periodsNo90 = [DAYS_30, DAYS_60];
-      const rewards = [10000, 10000];
+      const rewards = [10000, 1, 10000, 1];
       await expect(
         staking.registerToken(stakeToken1.getAddress(), periodsNo30, rewards)
       ).to.be.revertedWith("30-60-90-DaysUnspecified");
@@ -461,7 +505,7 @@ describe("Staking", function () {
       const periodsNo30 = [DAYS_60, DAYS_90];
       const periodsNo60 = [DAYS_30, DAYS_90];
       const periodsNo90 = [DAYS_30, DAYS_60];
-      const rewards = [10000, 10000];
+      const rewards = [10000, 1, 10000, 1];
       await expect(
         staking.registerToken(stakeToken1.getAddress(), periodsNo30, rewards)
       ).to.be.revertedWith("30-60-90-DaysUnspecified");
@@ -476,7 +520,7 @@ describe("Staking", function () {
       const { staking, stakeToken1, DAYS_30, DAYS_60, DAYS_90 } =
         await loadFixture(deployStaking);
       const periods = [DAYS_30, DAYS_60, DAYS_90];
-      const rewards = [10000, 10000, 0];
+      const rewards = [10000, 1, 10000, 1, 1, 0];
       await expect(
         staking.registerToken(stakeToken1.getAddress(), periods, rewards)
       ).to.be.revertedWith("ZeroReward");

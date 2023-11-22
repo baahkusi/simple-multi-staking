@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract MainStaking is ReentrancyGuard {
     address public owner;
@@ -18,14 +18,16 @@ contract MainStaking is ReentrancyGuard {
     uint256 private constant DAYS_90 = 90 days;
 
     struct StakeToken {
-        uint256 rewardsRate; // daily reward token for staking on this token
+        uint256 rewardsUpper; // lower body of rewards fraction
+        uint256 rewardsLower; // upper body of rewards fraction
         bool registered;
         uint256 totalStaked;
     }
 
     struct UserStake {
         uint256 stakeAmount;
-        uint256 rewardsRate; // daily reward token to be added
+        uint256 rewardsUpper; // lower body of rewards fraction
+        uint256 rewardsLower; // upper body of rewards fraction
         uint256 recentRewardsTime;
     }
     // token address -> stake period -> StakeToken
@@ -116,17 +118,19 @@ contract MainStaking is ReentrancyGuard {
         uint256[] calldata _rewards
     ) external onlyOwner notRewardToken(_tokenAddress) {
         require(
-            _periods.length == _rewards.length,
+            _periods.length * 2 == _rewards.length,
             "PeriodsRewardsLengthMisMatch"
         );
-        for (uint256 i = 0; i < _periods.length; i++) {
-            isValidPeriod(_periods[i]);
+        for (uint256 i = 0; i < _rewards.length; i += 2) {
+            isValidPeriod(_periods[i / 2]);
             require(_rewards[i] > 0, "ZeroReward");
-            stakeTokens[_tokenAddress][_periods[i]] = StakeToken(
-                _rewards[i],
-                true,
-                0
-            );
+            require(_rewards[i + 1] > 0, "ZeroReward");
+            stakeTokens[_tokenAddress][_periods[i / 2]] = StakeToken({
+                rewardsUpper: _rewards[i + 1],
+                rewardsLower: _rewards[i],
+                registered: true,
+                totalStaked: 0
+            });
         }
         require(isTokenRegistered(_tokenAddress), "30-60-90-DaysUnspecified");
     }
@@ -160,7 +164,8 @@ contract MainStaking is ReentrancyGuard {
         if (userStakings[msg.sender][_tokenAddress][_period].stakeAmount == 0) {
             userStakings[msg.sender][_tokenAddress][_period] = UserStake({
                 stakeAmount: _amount,
-                rewardsRate: stakeTokens[_tokenAddress][_period].rewardsRate,
+                rewardsUpper: stakeTokens[_tokenAddress][_period].rewardsUpper,
+                rewardsLower: stakeTokens[_tokenAddress][_period].rewardsLower,
                 recentRewardsTime: block.timestamp
             });
         } else {
@@ -168,7 +173,11 @@ contract MainStaking is ReentrancyGuard {
             userStakings[msg.sender][_tokenAddress][_period]
                 .stakeAmount += _amount;
             userStakings[msg.sender][_tokenAddress][_period]
-                .rewardsRate = stakeTokens[_tokenAddress][_period].rewardsRate;
+                .rewardsUpper = stakeTokens[_tokenAddress][_period]
+                .rewardsUpper;
+            userStakings[msg.sender][_tokenAddress][_period]
+                .rewardsLower = stakeTokens[_tokenAddress][_period]
+                .rewardsLower;
             userStakings[msg.sender][_tokenAddress][_period]
                 .recentRewardsTime = block.timestamp;
         }
@@ -246,6 +255,31 @@ contract MainStaking is ReentrancyGuard {
             stakeTokens[_tokenAddress][DAYS_90].registered;
     }
 
+    function rewardRate(
+        address _tokenAddress,
+        uint256 _period
+    ) public view returns (uint256) {
+        return stakeTokens[_tokenAddress][_period].rewardsLower;
+    }
+
+    function rewardPerPeriod(
+        address _userAddress,
+        address _tokenAddress,
+        uint256 _period
+    ) public view returns (uint256) {
+        uint256 lR = userStakings[_userAddress][_tokenAddress][_period]
+            .rewardsLower;
+        uint256 uR = userStakings[_userAddress][_tokenAddress][_period]
+            .rewardsUpper;
+        uint256 p = Math.min(
+            _period / ONE_DAY_IN_SECS,
+            (block.timestamp -
+                userStakings[_userAddress][_tokenAddress][_period]
+                    .recentRewardsTime) / ONE_DAY_IN_SECS
+        );
+        return Math.mulDiv(uR * 1e18, p, lR);
+    }
+
     function calculateReward(
         address _userAddress,
         address _tokenAddress,
@@ -257,16 +291,10 @@ contract MainStaking is ReentrancyGuard {
         validPeriod(_period)
         returns (uint256)
     {
-        return
-            (userStakings[_userAddress][_tokenAddress][_period].stakeAmount /
-                userStakings[_userAddress][_tokenAddress][_period]
-                    .rewardsRate) *
-            Math.min(
-                _period / ONE_DAY_IN_SECS,
-                (block.timestamp -
-                    userStakings[_userAddress][_tokenAddress][_period]
-                        .recentRewardsTime) / ONE_DAY_IN_SECS
-            );
+        uint256 stkAmt = userStakings[_userAddress][_tokenAddress][_period]
+            .stakeAmount;
+
+        return Math.mulDiv(stkAmt, rewardPerPeriod(_userAddress, _tokenAddress, _period), 1e18);
     }
 
     function _updateRewards(
